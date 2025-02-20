@@ -8,13 +8,20 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response(null, { headers: corsHeaders })
   }
 
   try {
     const { messages } = await req.json()
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')
+
+    if (!OPENAI_API_KEY) {
+      throw new Error('OpenAI API key not configured')
+    }
+
+    console.log('Calling OpenAI with messages:', JSON.stringify(messages))
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -35,14 +42,19 @@ serve(async (req) => {
     })
 
     if (!response.ok) {
-      throw new Error(`OpenAI API error: ${await response.text()}`)
+      const errorText = await response.text()
+      console.error('OpenAI API error:', errorText)
+      throw new Error(`OpenAI API error: ${errorText}`)
     }
 
     const data = await response.json()
+    console.log('OpenAI response:', JSON.stringify(data))
+
     return new Response(JSON.stringify(data), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (error) {
+    console.error('Error in chat function:', error)
     return new Response(
       JSON.stringify({ error: error.message }),
       { 

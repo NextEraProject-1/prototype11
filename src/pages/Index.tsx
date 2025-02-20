@@ -24,8 +24,11 @@ const Index = () => {
       ]
     }
   ]);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSend = async (content: string) => {
+    if (!content.trim()) return;
+    
     // Add user message
     const userMessage: Message = {
       id: Date.now(),
@@ -34,6 +37,7 @@ const Index = () => {
     };
     
     setMessages(prev => [...prev, userMessage]);
+    setIsLoading(true);
 
     try {
       // Prepare messages for AI
@@ -43,14 +47,24 @@ const Index = () => {
       }));
       aiMessages.push({ role: 'user', content });
 
+      console.log('Sending messages to AI:', aiMessages);
+
       // Call AI function
       const { data, error } = await supabase.functions.invoke('chat', {
         body: { messages: aiMessages }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase function error:', error);
+        throw error;
+      }
+
+      if (!data || !data.choices || !data.choices[0]) {
+        throw new Error('Invalid response format from AI');
+      }
 
       const aiResponse = data.choices[0].message.content;
+      console.log('Received AI response:', aiResponse);
       
       // Add AI response
       const aiMessage: Message = {
@@ -67,6 +81,8 @@ const Index = () => {
         description: "Failed to get AI response. Please try again.",
         variant: "destructive"
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -78,9 +94,14 @@ const Index = () => {
           {messages.map((message) => (
             <ChatMessage key={message.id} {...message} />
           ))}
+          {isLoading && (
+            <div className="flex items-center justify-center py-4">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+            </div>
+          )}
         </div>
       </div>
-      <ChatInput onSend={handleSend} />
+      <ChatInput onSend={handleSend} disabled={isLoading} />
     </div>
   );
 };
