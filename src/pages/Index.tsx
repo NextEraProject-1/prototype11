@@ -4,8 +4,11 @@ import { ChatHeader } from "@/components/ChatHeader";
 import { ChatMessage } from "@/components/ChatMessage";
 import { ChatInput } from "@/components/ChatInput";
 import { Message } from "@/types/chat";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
+  const { toast } = useToast();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 1,
@@ -22,60 +25,49 @@ const Index = () => {
     }
   ]);
 
-  const handleSend = (content: string) => {
+  const handleSend = async (content: string) => {
     // Add user message
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
-        content,
-        isOutgoing: true,
-      },
-    ]);
+    const userMessage: Message = {
+      id: Date.now(),
+      content,
+      isOutgoing: true,
+    };
+    
+    setMessages(prev => [...prev, userMessage]);
 
-    // Simulate AI response
-    setTimeout(() => {
-      if (content.toLowerCase().includes("laptop")) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: Date.now() + 1,
-            content: "What's your primary use case for the laptop?",
-            isOutgoing: false,
-            type: "question",
-            options: [
-              "Work/Professional",
-              "Gaming",
-              "Student",
-              "Creative Work",
-              "General Use"
-            ]
-          }
-        ]);
-      } else {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: Date.now() + 1,
-            content: "Here's a recommendation based on your needs:",
-            isOutgoing: false,
-          },
-          {
-            id: Date.now() + 2,
-            isOutgoing: false,
-            type: "product",
-            content: "",
-            product: {
-              id: "1",
-              name: "MacBook Air M2",
-              description: "Perfect for professionals and students alike, featuring the powerful M2 chip, stunning display, and all-day battery life.",
-              price: 1299.99,
-              imageUrl: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?q=80&w=1000&auto=format&fit=crop"
-            }
-          }
-        ]);
-      }
-    }, 1000);
+    try {
+      // Prepare messages for AI
+      const aiMessages = messages.map(msg => ({
+        role: msg.isOutgoing ? 'user' : 'assistant',
+        content: msg.content
+      }));
+      aiMessages.push({ role: 'user', content });
+
+      // Call AI function
+      const { data, error } = await supabase.functions.invoke('chat', {
+        body: { messages: aiMessages }
+      });
+
+      if (error) throw error;
+
+      const aiResponse = data.choices[0].message.content;
+      
+      // Add AI response
+      const aiMessage: Message = {
+        id: Date.now() + 1,
+        content: aiResponse,
+        isOutgoing: false,
+      };
+
+      setMessages(prev => [...prev, aiMessage]);
+    } catch (error) {
+      console.error('Error calling AI:', error);
+      toast({
+        title: "Error",
+        description: "Failed to get AI response. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
