@@ -12,16 +12,8 @@ const Index = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 1,
-      content: "Hello! I'm here to help you find the perfect tech product. What type of device are you looking for?",
+      content: "Hello! I'm here to help you find any product you're interested in. What are you looking to purchase today?",
       isOutgoing: false,
-      type: "question",
-      options: [
-        "Laptop",
-        "Smartphone",
-        "Tablet",
-        "Gaming Console",
-        "Other"
-      ]
     }
   ]);
   const [isLoading, setIsLoading] = useState(false);
