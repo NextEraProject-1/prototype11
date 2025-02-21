@@ -15,42 +15,64 @@ serve(async (req) => {
 
   try {
     const { messages } = await req.json()
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
 
-    if (!OPENAI_API_KEY) {
-      throw new Error('OpenAI API key not configured')
+    if (!GEMINI_API_KEY) {
+      throw new Error('Gemini API key not configured')
     }
 
-    console.log('Calling OpenAI with messages:', JSON.stringify(messages))
+    // Create the conversation history in Gemini format
+    const geminiMessages = messages.map(msg => ({
+      role: msg.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: msg.content }]
+    }));
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    // Add system prompt as first user message
+    geminiMessages.unshift({
+      role: 'user',
+      parts: [{ 
+        text: 'You are an AI product advisor helping customers find the perfect tech products. Focus on understanding their needs, budget, and use cases. Keep responses friendly and concise. If recommending a product, include details about its features, price, and why it suits their needs.'
+      }]
+    });
+
+    console.log('Calling Gemini API with messages:', JSON.stringify(geminiMessages))
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-3.5-turbo',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an AI product advisor helping customers find the perfect tech products. Focus on understanding their needs, budget, and use cases. Keep responses friendly and concise. If recommending a product, include details about its features, price, and why it suits their needs.'
-          },
-          ...messages
-        ],
+        contents: geminiMessages,
+        generationConfig: {
+          temperature: 0.7,
+          topK: 40,
+          topP: 0.95,
+          maxOutputTokens: 1024,
+        },
       }),
     })
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('OpenAI API error:', errorText)
-      throw new Error(`OpenAI API error: ${errorText}`)
+      console.error('Gemini API error:', errorText)
+      throw new Error(`Gemini API error: ${errorText}`)
     }
 
     const data = await response.json()
-    console.log('OpenAI response:', JSON.stringify(data))
+    console.log('Gemini response:', JSON.stringify(data))
 
-    return new Response(JSON.stringify(data), {
+    // Transform Gemini response format to match OpenAI format expected by frontend
+    const transformedResponse = {
+      choices: [{
+        message: {
+          content: data.candidates[0].content.parts[0].text,
+          role: 'assistant'
+        }
+      }]
+    }
+
+    return new Response(JSON.stringify(transformedResponse), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (error) {
