@@ -21,21 +21,26 @@ serve(async (req) => {
       throw new Error('Gemini API key not configured')
     }
 
-    // Create the conversation history in Gemini format
-    const geminiMessages = messages.map(msg => ({
-      role: msg.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: msg.content }]
-    }));
-
-    // Add system prompt as first user message
-    geminiMessages.unshift({
+    // Convert the message history to Gemini format
+    const geminiHistory = []
+    
+    // Add system prompt
+    geminiHistory.push({
       role: 'user',
       parts: [{ 
         text: 'You are an AI product advisor helping customers find the perfect tech products. Focus on understanding their needs, budget, and use cases. Keep responses friendly and concise. If recommending a product, include details about its features, price, and why it suits their needs.'
       }]
-    });
+    })
 
-    console.log('Calling Gemini API with messages:', JSON.stringify(geminiMessages))
+    // Add the conversation history
+    for (const msg of messages) {
+      geminiHistory.push({
+        role: msg.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: msg.content }]
+      })
+    }
+
+    console.log('Calling Gemini API with messages:', JSON.stringify(geminiHistory))
 
     const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
@@ -43,7 +48,13 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        contents: geminiMessages,
+        contents: geminiHistory,
+        safety_settings: [
+          {
+            category: "HARM_CATEGORY_HARASSMENT",
+            threshold: "BLOCK_MEDIUM_AND_ABOVE"
+          }
+        ],
         generationConfig: {
           temperature: 0.7,
           topK: 40,
@@ -61,6 +72,10 @@ serve(async (req) => {
 
     const data = await response.json()
     console.log('Gemini response:', JSON.stringify(data))
+
+    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts || !data.candidates[0].content.parts[0]) {
+      throw new Error('Invalid response format from Gemini API')
+    }
 
     // Transform Gemini response format to match OpenAI format expected by frontend
     const transformedResponse = {
