@@ -7,6 +7,37 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Helper function to generate shopping links based on country
+const getShoppingLinks = (productName: string, country: string) => {
+  const encodedProduct = encodeURIComponent(productName);
+  switch(country.toLowerCase()) {
+    case 'usa':
+    case 'united states':
+      return [
+        `https://www.amazon.com/s?k=${encodedProduct}`,
+        `https://www.bestbuy.com/site/searchpage.jsp?st=${encodedProduct}`,
+      ];
+    case 'uk':
+    case 'united kingdom':
+      return [
+        `https://www.amazon.co.uk/s?k=${encodedProduct}`,
+        `https://www.currys.co.uk/search?q=${encodedProduct}`,
+      ];
+    case 'canada':
+      return [
+        `https://www.amazon.ca/s?k=${encodedProduct}`,
+        `https://www.bestbuy.ca/en-ca/search?search=${encodedProduct}`,
+      ];
+    case 'australia':
+      return [
+        `https://www.amazon.com.au/s?k=${encodedProduct}`,
+        `https://www.jbhifi.com.au/?q=${encodedProduct}`,
+      ];
+    default:
+      return [`https://www.amazon.com/s?k=${encodedProduct}`];
+  }
+};
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -28,26 +59,24 @@ serve(async (req) => {
     geminiHistory.push({
       role: 'user',
       parts: [{ 
-        text: `You are an AI product advisor helping customers find any products they're interested in, including but not limited to:
-- Electronics and tech products
-- Vehicles and automotive
-- Home and garden
-- Fashion and accessories
-- Sports and fitness equipment
-- And any other product categories
+        text: `You are an AI product advisor helping customers find any products they're interested in. Follow these guidelines:
 
-Follow these guidelines:
+1. FIRST, always ask for BOTH:
+   - The user's country (to provide local shopping links)
+   - Their budget range
+   If either is missing, ask for them before proceeding.
 
-1. Always ask about their budget range first if not mentioned
-2. Ask about specific use cases and requirements
-3. Inquire about important features they need
-4. Ask about their preferred brands or any brands they want to avoid
+2. Once you have country and budget, ask about:
+   - Specific use cases and requirements
+   - Important features they need
+   - Preferred brands or any brands to avoid
 
 When you have enough information to make recommendations, ALWAYS format your response in JSON like this:
 
 {
   "type": "product_recommendations",
   "analysis": "Brief analysis of their needs",
+  "country": "User's country",
   "options": [
     {
       "name": "Product Name 1",
@@ -96,8 +125,8 @@ For images, use relevant images from Unsplash. Here are some example image IDs:
 - Fashion: photo-1523381210434-271e8be1f52b
 - Sports: photo-1517649763962-0c623066013b
 
-If you don't have enough information to make recommendations, respond with normal text asking relevant questions.
-Remember to stay within specified budget and keep responses friendly and concise.`
+If you don't have both country and budget information, ask for the missing information first.
+Keep responses friendly and concise.`
       }]
     })
 
@@ -158,13 +187,15 @@ Remember to stay within specified budget and keep responses friendly and concise
           transformedContent = `${jsonResponse.analysis}\n\n`;
           
           jsonResponse.options.forEach((option, index) => {
+            const shoppingLinks = getShoppingLinks(option.name, jsonResponse.country);
+            
             transformedContent += `Option ${index + 1}: ${option.name} - $${option.price}\n`;
             transformedContent += `• Features:\n${option.features.map(f => `  - ${f}`).join('\n')}\n`;
             transformedContent += `• ${option.matchReason}\n`;
             if (option.tradeoffs) {
               transformedContent += `• Trade-offs: ${option.tradeoffs}\n`;
             }
-            transformedContent += '\n';
+            transformedContent += `• Where to buy:\n${shoppingLinks.map(link => `  - ${link}`).join('\n')}\n\n`;
           });
           
           transformedContent += `TOP RECOMMENDATION: Option ${jsonResponse.topRecommendation.optionIndex + 1} - ${jsonResponse.options[jsonResponse.topRecommendation.optionIndex].name}\n`;

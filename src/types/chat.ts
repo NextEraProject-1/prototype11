@@ -5,6 +5,7 @@ export interface Product {
   description: string;
   price: number;
   imageUrl?: string;
+  shoppingLinks?: string[];
 }
 
 export interface Message {
