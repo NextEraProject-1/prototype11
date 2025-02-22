@@ -1,6 +1,7 @@
 
 import { cn } from "@/lib/utils";
 import { Message } from "@/types/chat";
+import { ExternalLink } from "lucide-react";
 
 interface ChatMessageProps extends Message {}
 
@@ -18,10 +19,29 @@ export const ChatMessage = ({ content, isOutgoing, sender, type, options, produc
             />
           )}
           <p className="text-sm text-foreground/80">{product.description}</p>
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col gap-2">
             <span className="font-medium text-lg">
               ${product.price.toFixed(2)}
             </span>
+            {product.shoppingLinks && product.shoppingLinks.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="font-medium">Where to buy:</h4>
+                <div className="flex flex-col gap-2">
+                  {product.shoppingLinks.map((link, index) => (
+                    <a
+                      key={index}
+                      href={link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      {new URL(link).hostname.replace('www.', '')}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

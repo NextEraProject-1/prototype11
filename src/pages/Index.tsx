@@ -60,32 +60,40 @@ const Index = () => {
       const aiResponse = data.choices[0].message.content;
       console.log('Received AI response:', aiResponse);
 
-      // Try to parse product recommendations from the response
+      // Try to parse the response as JSON first
       let messageType: Message['type'] = 'text';
       let messageProduct = undefined;
-      
-      // Check if response contains product recommendations
-      if (aiResponse.includes('TOP RECOMMENDATION: Option')) {
-        const recommendationMatch = aiResponse.match(/TOP RECOMMENDATION: Option (\d+)/);
-        if (recommendationMatch) {
-          const optionNumber = parseInt(recommendationMatch[1]) - 1;
-          
-          // Try to find the image URL for the recommended product
-          const imageUrlMatch = aiResponse.match(/https:\/\/images\.unsplash\.com\/[^\s\n]+/);
-          const imageUrl = imageUrlMatch ? imageUrlMatch[0] : undefined;
-          
-          // Extract the product name and price
-          const productMatch = aiResponse.match(/Option \d+: ([^-]+) - \$(\d+(\.\d{2})?)/);
-          if (productMatch) {
-            messageType = 'product';
-            messageProduct = {
-              id: `product-${Date.now()}`,
-              name: productMatch[1].trim(),
-              price: parseFloat(productMatch[2]),
-              description: aiResponse,
-              imageUrl
-            };
-          }
+      let parsedJson = null;
+
+      try {
+        if (aiResponse.trim().startsWith('{')) {
+          parsedJson = JSON.parse(aiResponse);
+        }
+      } catch (e) {
+        console.log('Response is not JSON, will process as text');
+      }
+
+      if (parsedJson?.type === 'product_recommendations') {
+        const topRecommendation = parsedJson.options[parsedJson.topRecommendation.optionIndex];
+        if (topRecommendation) {
+          messageType = 'product';
+          // Extract shopping links from the text content
+          const shoppingLinksMatch = aiResponse.match(/Where to buy:\n((?:  - https:\/\/[^\n]+\n?)+)/);
+          const shoppingLinks = shoppingLinksMatch ? 
+            shoppingLinksMatch[1]
+              .split('\n')
+              .map(link => link.replace('  - ', ''))
+              .filter(link => link.trim() !== '') : 
+            [];
+
+          messageProduct = {
+            id: `product-${Date.now()}`,
+            name: topRecommendation.name,
+            price: topRecommendation.price,
+            description: parsedJson.analysis,
+            imageUrl: topRecommendation.imageUrl,
+            shoppingLinks: shoppingLinks,
+          };
         }
       }
       
