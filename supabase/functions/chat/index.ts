@@ -43,35 +43,61 @@ Follow these guidelines:
 3. Inquire about important features they need
 4. Ask about their preferred brands or any brands they want to avoid
 
-When you have enough information to make recommendations, ALWAYS format your response like this:
+When you have enough information to make recommendations, ALWAYS format your response in JSON like this:
 
-1. First provide a brief analysis of their needs
-2. Then present exactly 3 options in this format:
+{
+  "type": "product_recommendations",
+  "analysis": "Brief analysis of their needs",
+  "options": [
+    {
+      "name": "Product Name 1",
+      "price": 999.99,
+      "imageUrl": "https://images.unsplash.com/[relevant-image-id]",
+      "features": [
+        "Key feature 1",
+        "Key feature 2"
+      ],
+      "matchReason": "Why it matches their needs",
+      "tradeoffs": "Any relevant trade-offs"
+    },
+    {
+      "name": "Product Name 2",
+      "price": 799.99,
+      "imageUrl": "https://images.unsplash.com/[relevant-image-id]",
+      "features": [
+        "Key feature 1",
+        "Key feature 2"
+      ],
+      "matchReason": "Why it matches their needs",
+      "tradeoffs": "Any relevant trade-offs"
+    },
+    {
+      "name": "Product Name 3",
+      "price": 699.99,
+      "imageUrl": "https://images.unsplash.com/[relevant-image-id]",
+      "features": [
+        "Key feature 1",
+        "Key feature 2"
+      ],
+      "matchReason": "Why it matches their needs",
+      "tradeoffs": "Any relevant trade-offs"
+    }
+  ],
+  "topRecommendation": {
+    "optionIndex": 1,
+    "reason": "Brief explanation of why this is the best choice"
+  }
+}
 
-Option 1: [Product Name] - $[Price]
-• Key features
-• Why it matches their needs
-• Any relevant trade-offs
+For images, use relevant images from Unsplash. Here are some example image IDs:
+- Tech/Laptops: photo-1488590528505-98d2b5aba04b
+- Cars: photo-1494976388531-d1058494cdd8
+- Home/Furniture: photo-1518005020951-eccb494ad742
+- Fashion: photo-1523381210434-271e8be1f52b
+- Sports: photo-1517649763962-0c623066013b
 
-Option 2: [Product Name] - $[Price]
-• Key features
-• Why it matches their needs
-• Any relevant trade-offs
-
-Option 3: [Product Name] - $[Price]
-• Key features
-• Why it matches their needs
-• Any relevant trade-offs
-
-TOP RECOMMENDATION: Based on your requirements, I recommend Option [X] because [brief explanation].
-
-Before making recommendations:
-- Keep responses friendly and concise
-- Ask one question at a time to avoid overwhelming the user
-- Stay within specified budget
-- Be helpful with ANY product category
-
-Remember to gather enough information before making recommendations. If you don't have enough information, ask relevant questions first.`
+If you don't have enough information to make recommendations, respond with normal text asking relevant questions.
+Remember to stay within specified budget and keep responses friendly and concise.`
       }]
     })
 
@@ -120,11 +146,40 @@ Remember to gather enough information before making recommendations. If you don'
       throw new Error('Invalid response format from Gemini API')
     }
 
+    const aiResponseText = data.candidates[0].content.parts[0].text;
+    
+    // Try to parse as JSON if it looks like JSON
+    let transformedContent = aiResponseText;
+    if (aiResponseText.trim().startsWith('{')) {
+      try {
+        const jsonResponse = JSON.parse(aiResponseText);
+        if (jsonResponse.type === 'product_recommendations') {
+          // Format the recommendations in a nice way
+          transformedContent = `${jsonResponse.analysis}\n\n`;
+          
+          jsonResponse.options.forEach((option, index) => {
+            transformedContent += `Option ${index + 1}: ${option.name} - $${option.price}\n`;
+            transformedContent += `• Features:\n${option.features.map(f => `  - ${f}`).join('\n')}\n`;
+            transformedContent += `• ${option.matchReason}\n`;
+            if (option.tradeoffs) {
+              transformedContent += `• Trade-offs: ${option.tradeoffs}\n`;
+            }
+            transformedContent += '\n';
+          });
+          
+          transformedContent += `TOP RECOMMENDATION: Option ${jsonResponse.topRecommendation.optionIndex + 1} - ${jsonResponse.options[jsonResponse.topRecommendation.optionIndex].name}\n`;
+          transformedContent += `Because: ${jsonResponse.topRecommendation.reason}`;
+        }
+      } catch (e) {
+        console.log('Response was not valid JSON, using as plain text');
+      }
+    }
+
     // Transform Gemini response format to match OpenAI format expected by frontend
     const transformedResponse = {
       choices: [{
         message: {
-          content: data.candidates[0].content.parts[0].text,
+          content: transformedContent,
           role: 'assistant'
         }
       }]

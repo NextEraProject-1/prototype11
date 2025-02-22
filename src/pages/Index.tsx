@@ -57,12 +57,43 @@ const Index = () => {
 
       const aiResponse = data.choices[0].message.content;
       console.log('Received AI response:', aiResponse);
+
+      // Try to parse product recommendations from the response
+      let messageType: Message['type'] = 'text';
+      let messageProduct = undefined;
+      
+      // Check if response contains product recommendations
+      if (aiResponse.includes('TOP RECOMMENDATION: Option')) {
+        const recommendationMatch = aiResponse.match(/TOP RECOMMENDATION: Option (\d+)/);
+        if (recommendationMatch) {
+          const optionNumber = parseInt(recommendationMatch[1]) - 1;
+          
+          // Try to find the image URL for the recommended product
+          const imageUrlMatch = aiResponse.match(/https:\/\/images\.unsplash\.com\/[^\s\n]+/);
+          const imageUrl = imageUrlMatch ? imageUrlMatch[0] : undefined;
+          
+          // Extract the product name and price
+          const productMatch = aiResponse.match(/Option \d+: ([^-]+) - \$(\d+(\.\d{2})?)/);
+          if (productMatch) {
+            messageType = 'product';
+            messageProduct = {
+              id: `product-${Date.now()}`,
+              name: productMatch[1].trim(),
+              price: parseFloat(productMatch[2]),
+              description: aiResponse,
+              imageUrl
+            };
+          }
+        }
+      }
       
       // Add AI response
       const aiMessage: Message = {
         id: Date.now() + 1,
         content: aiResponse,
         isOutgoing: false,
+        type: messageType,
+        product: messageProduct
       };
 
       setMessages(prev => [...prev, aiMessage]);
