@@ -6,9 +6,11 @@ import { ChatInput } from "@/components/ChatInput";
 import { Message } from "@/types/chat";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { Rocket, ShoppingCart, Package, Gift, Sparkles, ArrowRight } from "lucide-react";
 
 const Index = () => {
   const { toast } = useToast();
+  const [showChat, setShowChat] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 1,
@@ -108,6 +110,82 @@ const Index = () => {
       setIsLoading(false);
     }
   };
+
+  if (!showChat) {
+    return (
+      <div className="min-h-screen bg-background">
+        <ChatHeader title="AI Product Advisor" />
+        <main className="max-w-6xl mx-auto px-4 pt-16">
+          {/* Hero Section */}
+          <div className="text-center py-16 space-y-6">
+            <div className="inline-block p-2 bg-primary/20 rounded-full mb-4">
+              <Sparkles className="w-6 h-6 text-primary" />
+            </div>
+            <h1 className="text-4xl md:text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-600">
+              Your Personal Shopping Assistant
+            </h1>
+            <p className="text-lg md:text-xl text-foreground/70 max-w-2xl mx-auto">
+              Get personalized product recommendations for anything you need, powered by advanced AI.
+            </p>
+            <button
+              onClick={() => setShowChat(true)}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 text-foreground font-medium rounded-full transition-colors"
+            >
+              Start Shopping <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Features Grid */}
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 py-12">
+            <div className="p-6 rounded-2xl bg-white/50 backdrop-blur-sm border border-primary/10 space-y-3">
+              <div className="p-3 bg-primary/20 rounded-full w-fit">
+                <ShoppingCart className="w-6 h-6 text-primary" />
+              </div>
+              <h3 className="font-semibold text-lg">Any Product</h3>
+              <p className="text-foreground/70">From electronics to fashion, get recommendations for anything you need.</p>
+            </div>
+            <div className="p-6 rounded-2xl bg-white/50 backdrop-blur-sm border border-primary/10 space-y-3">
+              <div className="p-3 bg-primary/20 rounded-full w-fit">
+                <Rocket className="w-6 h-6 text-primary" />
+              </div>
+              <h3 className="font-semibold text-lg">Smart Analysis</h3>
+              <p className="text-foreground/70">AI-powered suggestions based on your specific needs and preferences.</p>
+            </div>
+            <div className="p-6 rounded-2xl bg-white/50 backdrop-blur-sm border border-primary/10 space-y-3">
+              <div className="p-3 bg-primary/20 rounded-full w-fit">
+                <Package className="w-6 h-6 text-primary" />
+              </div>
+              <h3 className="font-semibold text-lg">Detailed Specs</h3>
+              <p className="text-foreground/70">Get comprehensive product information with images and specifications.</p>
+            </div>
+            <div className="p-6 rounded-2xl bg-white/50 backdrop-blur-sm border border-primary/10 space-y-3">
+              <div className="p-3 bg-primary/20 rounded-full w-fit">
+                <Gift className="w-6 h-6 text-primary" />
+              </div>
+              <h3 className="font-semibold text-lg">Best Matches</h3>
+              <p className="text-foreground/70">Compare options and get personalized top recommendations.</p>
+            </div>
+          </div>
+
+          {/* Trust Section */}
+          <div className="text-center py-16">
+            <h2 className="text-2xl md:text-3xl font-semibold mb-4">
+              Ready to find your perfect product?
+            </h2>
+            <p className="text-foreground/70 mb-8">
+              Our AI assistant will guide you through the process and help you make the best choice.
+            </p>
+            <button
+              onClick={() => setShowChat(true)}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 text-foreground font-medium rounded-full transition-colors"
+            >
+              Get Started <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
