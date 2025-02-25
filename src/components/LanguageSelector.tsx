@@ -9,6 +9,7 @@ import {
 import { Languages } from "lucide-react";
 
 const languages = [
+  { code: "ar", name: "العربية" },
   { code: "en", name: "English" },
   { code: "es", name: "Español" },
   { code: "fr", name: "Français" },

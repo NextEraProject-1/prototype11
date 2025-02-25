@@ -7,7 +7,7 @@
   :root {
     --background: 60 100% 98%;
     --foreground: 215 25% 27%;
-    --primary: 187 49% 80%;
+    --primary: 250 47% 55%;
     --message-out: 151 40% 94%;
     --message-in: 120 55% 94%;
     --border-radius: 1rem;
@@ -15,6 +15,10 @@
 
   body {
     @apply bg-background text-foreground antialiased;
+  }
+
+  [dir="rtl"] {
+    direction: rtl;
   }
 }
 
@@ -36,3 +40,4 @@
 .glass-effect {
   @apply bg-white/70 backdrop-blur-md border border-white/20;
 }
+
