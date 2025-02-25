@@ -9,19 +9,22 @@ import { useToast } from "@/hooks/use-toast";
 import { Rocket, ShoppingCart, Package, Gift, Sparkles, ArrowRight } from "lucide-react";
 
 const welcomeMessages = {
-  ar: "مرحباً! أنا هنا لمساعدتك في العثور على أي منتج تهتم به. أولاً، هل يمكنك إخباري عن بلدك وميزانيتك؟",
-  en: "Hello! I'm here to help you find any product you're interested in. First, could you tell me your country and budget?",
-  es: "¡Hola! Estoy aquí para ayudarte a encontrar cualquier producto que te interese. Primero, ¿podrías decirme tu país y presupuesto?",
-  fr: "Bonjour! Je suis là pour vous aider à trouver les produits qui vous intéressent. Tout d'abord, pourriez-vous me dire votre pays et votre budget?",
-  de: "Hallo! Ich bin hier, um Ihnen zu helfen, jedes gewünschte Produkt zu finden. Könnten Sie mir zunächst Ihr Land und Budget nennen?",
-  it: "Ciao! Sono qui per aiutarti a trovare qualsiasi prodotto ti interessi. Prima, potresti dirmi il tuo paese e il tuo budget?",
-  pt: "Olá! Estou aqui para ajudá-lo a encontrar qualquer produto que lhe interesse. Primeiro, poderia me dizer seu país e orçamento?",
+  ar: "مرحباً! ما هو المنتج الذي تبحث عنه اليوم؟",
+  en: "Hello! What product are you looking for today?",
+  es: "¡Hola! ¿Qué producto estás buscando hoy?",
+  fr: "Bonjour! Quel produit recherchez-vous aujourd'hui?",
+  de: "Hallo! Welches Produkt suchen Sie heute?",
+  it: "Ciao! Quale prodotto stai cercando oggi?",
+  pt: "Olá! Qual produto você está procurando hoje?",
 };
 
 const Index = () => {
   const { toast } = useToast();
   const [showChat, setShowChat] = useState(false);
-  const [currentLang, setCurrentLang] = useState("ar");
+  const [currentLang, setCurrentLang] = useState(() => {
+    const savedLang = localStorage.getItem("preferredLanguage");
+    return savedLang || "ar";
+  });
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 1,
@@ -34,6 +37,7 @@ const Index = () => {
   // Update document direction based on language
   useEffect(() => {
     document.documentElement.dir = currentLang === "ar" ? "rtl" : "ltr";
+    localStorage.setItem("preferredLanguage", currentLang);
   }, [currentLang]);
 
   const handleLanguageChange = (lang: string) => {
