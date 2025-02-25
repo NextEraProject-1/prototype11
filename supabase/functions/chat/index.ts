@@ -11,6 +11,11 @@ const corsHeaders = {
 const getShoppingLinks = (productName: string, country: string) => {
   const encodedProduct = encodeURIComponent(productName);
   switch(country.toLowerCase()) {
+    case 'egypt':
+      return [
+        `https://www.amazon.eg/s?k=${encodedProduct}`,
+        `https://www.noon.com/egypt-en/search?q=${encodedProduct}`,
+      ];
     case 'usa':
     case 'united states':
       return [
@@ -22,21 +27,6 @@ const getShoppingLinks = (productName: string, country: string) => {
       return [
         `https://www.amazon.co.uk/s?k=${encodedProduct}`,
         `https://www.currys.co.uk/search?q=${encodedProduct}`,
-      ];
-    case 'canada':
-      return [
-        `https://www.amazon.ca/s?k=${encodedProduct}`,
-        `https://www.bestbuy.ca/en-ca/search?search=${encodedProduct}`,
-      ];
-    case 'australia':
-      return [
-        `https://www.amazon.com.au/s?k=${encodedProduct}`,
-        `https://www.jbhifi.com.au/?q=${encodedProduct}`,
-      ];
-    case 'egypt':
-      return [
-        `https://www.amazon.eg/s?k=${encodedProduct}`,
-        `https://www.noon.com/egypt-en/search?q=${encodedProduct}`,
       ];
     default:
       return [`https://www.amazon.com/s?k=${encodedProduct}`];
@@ -60,23 +50,22 @@ serve(async (req) => {
     // Convert the message history to Gemini format
     const geminiHistory = []
     
-    // Add detailed system prompt
+    // Add detailed system prompt with separate country and budget questions
     geminiHistory.push({
       role: 'user',
       parts: [{ 
-        text: `You are an AI product advisor helping customers find any products they're interested in. Follow these guidelines:
+        text: `You are an AI product advisor helping customers find products they're interested in. Follow these guidelines:
 
-1. FIRST, always ask for BOTH:
-   - The user's country (to provide local shopping links)
-   - Their budget range
-   If either is missing, ask for them before proceeding.
+1. FIRST ask ONLY for the user's country to provide local shopping links. Wait for their response.
 
-2. Once you have country and budget, ask about:
+2. THEN ask for their budget range. Wait for their response.
+
+3. Once you have both country and budget, ask about:
    - Specific use cases and requirements
    - Important features they need
    - Preferred brands or any brands to avoid
 
-When you have enough information to make recommendations, ALWAYS format your response in JSON like this:
+When you have enough information to make recommendations, format your response in JSON like this:
 
 {
   "type": "product_recommendations",
@@ -84,45 +73,61 @@ When you have enough information to make recommendations, ALWAYS format your res
   "country": "User's country",
   "options": [
     {
-      "name": "Product Name 1",
+      "name": "Product Name",
       "price": 999.99,
       "imageUrl": "https://images.unsplash.com/[relevant-image-id]",
-      "features": [
-        "Key feature 1",
-        "Key feature 2"
-      ],
-      "matchReason": "Why it matches their needs",
+      "features": ["Feature 1", "Feature 2"],
+      "matchReason": "Why this matches their needs",
       "tradeoffs": "Any relevant trade-offs"
     }
   ],
   "topRecommendation": {
     "optionIndex": 0,
-    "reason": "Brief explanation of why this is the best choice"
+    "reason": "Why this is the best choice"
   }
 }
 
-For images, use relevant images from Unsplash. Here are some example image IDs:
-- Tech/Laptops: photo-1488590528505-98d2b5aba04b
+Use these Unsplash image IDs based on category:
+- Tech: photo-1488590528505-98d2b5aba04b
 - Cars: photo-1494976388531-d1058494cdd8
-- Home/Furniture: photo-1518005020951-eccb494ad742
+- Furniture: photo-1518005020951-eccb494ad742
 - Fashion: photo-1523381210434-271e8be1f52b
 - Sports: photo-1517649763962-0c623066013b
 
-If you don't have both country and budget information, ask for the missing information first.
-Keep responses friendly and concise.
+IMPORTANT:
+- Ask questions one at a time
+- Keep responses friendly and concise
+- If you don't have the country, ONLY ask for that first
+- After getting the country, ONLY ask for the budget
+- Only proceed with more questions after having both
 
 Current language: ${language}`
       }]
     })
 
     // Add the conversation history
+    let hasCountry = false;
+    let hasBudget = false;
+    
     for (const msg of messages) {
+      // Check for country and budget in user messages
+      if (msg.role === 'user') {
+        const lowerMsg = msg.content.toLowerCase();
+        if (lowerMsg.includes('egypt') || lowerMsg.includes('usa') || lowerMsg.includes('uk')) {
+          hasCountry = true;
+        }
+        if (lowerMsg.includes('$') || lowerMsg.includes('budget')) {
+          hasBudget = true;
+        }
+      }
+      
       geminiHistory.push({
         role: msg.role === 'assistant' ? 'model' : 'user',
         parts: [{ text: msg.content }]
       })
     }
 
+    console.log('Conversation state - Has country:', hasCountry, 'Has budget:', hasBudget);
     console.log('Calling Gemini API with messages:', JSON.stringify(geminiHistory))
 
     const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent', {
