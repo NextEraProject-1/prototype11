@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { ChatHeader } from "@/components/ChatHeader";
 import { ChatMessage } from "@/components/ChatMessage";
@@ -8,22 +7,43 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Rocket, ShoppingCart, Package, Gift, Sparkles, ArrowRight } from "lucide-react";
 
+const welcomeMessages = {
+  en: "Hello! I'm here to help you find any product you're interested in. First, could you tell me your country and budget?",
+  es: "¡Hola! Estoy aquí para ayudarte a encontrar cualquier producto que te interese. Primero, ¿podrías decirme tu país y presupuesto?",
+  fr: "Bonjour! Je suis là pour vous aider à trouver les produits qui vous intéressent. Tout d'abord, pourriez-vous me dire votre pays et votre budget?",
+  de: "Hallo! Ich bin hier, um Ihnen zu helfen, jedes gewünschte Produkt zu finden. Könnten Sie mir zunächst Ihr Land und Budget nennen?",
+  it: "Ciao! Sono qui per aiutarti a trovare qualsiasi prodotto ti interessi. Prima, potresti dirmi il tuo paese e il tuo budget?",
+  pt: "Olá! Estou aqui para ajudá-lo a encontrar qualquer produto que lhe interesse. Primeiro, poderia me dizer seu país e orçamento?",
+};
+
 const Index = () => {
   const { toast } = useToast();
   const [showChat, setShowChat] = useState(false);
+  const [currentLang, setCurrentLang] = useState("en");
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 1,
-      content: "Hello! I'm here to help you find any product you're interested in. What are you looking to purchase today?",
+      content: welcomeMessages[currentLang as keyof typeof welcomeMessages],
       isOutgoing: false,
     }
   ]);
   const [isLoading, setIsLoading] = useState(false);
 
+  const handleLanguageChange = (lang: string) => {
+    setCurrentLang(lang);
+    setMessages(prev => [
+      {
+        id: Date.now(),
+        content: welcomeMessages[lang as keyof typeof welcomeMessages],
+        isOutgoing: false,
+      },
+      ...prev.slice(1)
+    ]);
+  };
+
   const handleSend = async (content: string) => {
     if (!content.trim()) return;
     
-    // Add user message
     const userMessage: Message = {
       id: Date.now(),
       content,
@@ -34,7 +54,6 @@ const Index = () => {
     setIsLoading(true);
 
     try {
-      // Prepare messages for AI
       const aiMessages = messages.map(msg => ({
         role: msg.isOutgoing ? 'user' : 'assistant',
         content: msg.content
@@ -43,9 +62,8 @@ const Index = () => {
 
       console.log('Sending messages to AI:', aiMessages);
 
-      // Call AI function
       const { data, error } = await supabase.functions.invoke('chat', {
-        body: { messages: aiMessages }
+        body: { messages: aiMessages, language: currentLang }
       });
 
       if (error) {
@@ -60,7 +78,6 @@ const Index = () => {
       const aiResponse = data.choices[0].message.content;
       console.log('Received AI response:', aiResponse);
 
-      // Try to parse the response as JSON first
       let messageType: Message['type'] = 'text';
       let messageProduct = undefined;
       let parsedJson = null;
@@ -77,14 +94,7 @@ const Index = () => {
         const topRecommendation = parsedJson.options[parsedJson.topRecommendation.optionIndex];
         if (topRecommendation) {
           messageType = 'product';
-          // Extract shopping links from the text content
-          const shoppingLinksMatch = aiResponse.match(/Where to buy:\n((?:  - https:\/\/[^\n]+\n?)+)/);
-          const shoppingLinks = shoppingLinksMatch ? 
-            shoppingLinksMatch[1]
-              .split('\n')
-              .map(link => link.replace('  - ', ''))
-              .filter(link => link.trim() !== '') : 
-            [];
+          const shoppingLinks = topRecommendation.shoppingLinks || [];
 
           messageProduct = {
             id: `product-${Date.now()}`,
@@ -92,21 +102,45 @@ const Index = () => {
             price: topRecommendation.price,
             description: parsedJson.analysis,
             imageUrl: topRecommendation.imageUrl,
-            shoppingLinks: shoppingLinks,
+            shoppingLinks,
           };
         }
-      }
-      
-      // Add AI response
-      const aiMessage: Message = {
-        id: Date.now() + 1,
-        content: aiResponse,
-        isOutgoing: false,
-        type: messageType,
-        product: messageProduct
-      };
 
-      setMessages(prev => [...prev, aiMessage]);
+        const analysisMessage: Message = {
+          id: Date.now(),
+          content: parsedJson.analysis,
+          isOutgoing: false,
+        };
+        setMessages(prev => [...prev, analysisMessage]);
+
+        const productMessage: Message = {
+          id: Date.now() + 1,
+          content: aiResponse,
+          isOutgoing: false,
+          type: messageType,
+          product: messageProduct
+        };
+        setMessages(prev => [...prev, productMessage]);
+      } else {
+        const questions = aiResponse.split(/\?[\s\n]+/).filter(Boolean);
+        
+        for (let i = 0; i < questions.length; i++) {
+          let question = questions[i];
+          if (!question.trim()) continue;
+          
+          if (i < questions.length - 1 || aiResponse.endsWith('?')) {
+            question += '?';
+          }
+          
+          const message: Message = {
+            id: Date.now() + i,
+            content: question.trim(),
+            isOutgoing: false,
+            type: question.includes('?') ? 'question' : 'text'
+          };
+          setMessages(prev => [...prev, message]);
+        }
+      }
     } catch (error) {
       console.error('Error calling AI:', error);
       toast({
@@ -122,9 +156,12 @@ const Index = () => {
   if (!showChat) {
     return (
       <div className="min-h-screen bg-background">
-        <ChatHeader title="AI Product Advisor" />
+        <ChatHeader 
+          title="AI Product Advisor" 
+          currentLang={currentLang}
+          onLanguageChange={handleLanguageChange}
+        />
         <main className="max-w-6xl mx-auto px-4 pt-16">
-          {/* Hero Section */}
           <div className="text-center py-16 space-y-6">
             <div className="inline-block p-2 bg-primary/20 rounded-full mb-4">
               <Sparkles className="w-6 h-6 text-primary" />
@@ -143,7 +180,6 @@ const Index = () => {
             </button>
           </div>
 
-          {/* Features Grid */}
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 py-12">
             <div className="p-6 rounded-2xl bg-white/50 backdrop-blur-sm border border-primary/10 space-y-3">
               <div className="p-3 bg-primary/20 rounded-full w-fit">
@@ -175,7 +211,6 @@ const Index = () => {
             </div>
           </div>
 
-          {/* Trust Section */}
           <div className="text-center py-16">
             <h2 className="text-2xl md:text-3xl font-semibold mb-4">
               Ready to find your perfect product?
@@ -197,7 +232,11 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <ChatHeader title="AI Product Advisor" />
+      <ChatHeader 
+        title="AI Product Advisor" 
+        currentLang={currentLang}
+        onLanguageChange={handleLanguageChange}
+      />
       <div className="max-w-3xl mx-auto px-4 pt-16 pb-24">
         <div className="space-y-4 py-4">
           {messages.map((message) => (
