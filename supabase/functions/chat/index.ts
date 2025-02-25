@@ -33,6 +33,11 @@ const getShoppingLinks = (productName: string, country: string) => {
         `https://www.amazon.com.au/s?k=${encodedProduct}`,
         `https://www.jbhifi.com.au/?q=${encodedProduct}`,
       ];
+    case 'egypt':
+      return [
+        `https://www.amazon.eg/s?k=${encodedProduct}`,
+        `https://www.noon.com/egypt-en/search?q=${encodedProduct}`,
+      ];
     default:
       return [`https://www.amazon.com/s?k=${encodedProduct}`];
   }
@@ -45,7 +50,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages } = await req.json()
+    const { messages, language = 'en' } = await req.json()
     const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
 
     if (!GEMINI_API_KEY) {
@@ -88,32 +93,10 @@ When you have enough information to make recommendations, ALWAYS format your res
       ],
       "matchReason": "Why it matches their needs",
       "tradeoffs": "Any relevant trade-offs"
-    },
-    {
-      "name": "Product Name 2",
-      "price": 799.99,
-      "imageUrl": "https://images.unsplash.com/[relevant-image-id]",
-      "features": [
-        "Key feature 1",
-        "Key feature 2"
-      ],
-      "matchReason": "Why it matches their needs",
-      "tradeoffs": "Any relevant trade-offs"
-    },
-    {
-      "name": "Product Name 3",
-      "price": 699.99,
-      "imageUrl": "https://images.unsplash.com/[relevant-image-id]",
-      "features": [
-        "Key feature 1",
-        "Key feature 2"
-      ],
-      "matchReason": "Why it matches their needs",
-      "tradeoffs": "Any relevant trade-offs"
     }
   ],
   "topRecommendation": {
-    "optionIndex": 1,
+    "optionIndex": 0,
     "reason": "Brief explanation of why this is the best choice"
   }
 }
@@ -126,7 +109,9 @@ For images, use relevant images from Unsplash. Here are some example image IDs:
 - Sports: photo-1517649763962-0c623066013b
 
 If you don't have both country and budget information, ask for the missing information first.
-Keep responses friendly and concise.`
+Keep responses friendly and concise.
+
+Current language: ${language}`
       }]
     })
 
@@ -140,14 +125,15 @@ Keep responses friendly and concise.`
 
     console.log('Calling Gemini API with messages:', JSON.stringify(geminiHistory))
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`, {
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'x-goog-api-key': GEMINI_API_KEY,
       },
       body: JSON.stringify({
         contents: geminiHistory,
-        safety_settings: [
+        safetySettings: [
           {
             category: "HARM_CATEGORY_HARASSMENT",
             threshold: "BLOCK_MEDIUM_AND_ABOVE"
@@ -178,39 +164,28 @@ Keep responses friendly and concise.`
     const aiResponseText = data.candidates[0].content.parts[0].text;
     
     // Try to parse as JSON if it looks like JSON
-    let transformedContent = aiResponseText;
+    let finalResponse = aiResponseText;
     if (aiResponseText.trim().startsWith('{')) {
       try {
         const jsonResponse = JSON.parse(aiResponseText);
         if (jsonResponse.type === 'product_recommendations') {
-          // Format the recommendations in a nice way
-          transformedContent = `${jsonResponse.analysis}\n\n`;
-          
-          jsonResponse.options.forEach((option, index) => {
-            const shoppingLinks = getShoppingLinks(option.name, jsonResponse.country);
-            
-            transformedContent += `Option ${index + 1}: ${option.name} - $${option.price}\n`;
-            transformedContent += `• Features:\n${option.features.map(f => `  - ${f}`).join('\n')}\n`;
-            transformedContent += `• ${option.matchReason}\n`;
-            if (option.tradeoffs) {
-              transformedContent += `• Trade-offs: ${option.tradeoffs}\n`;
-            }
-            transformedContent += `• Where to buy:\n${shoppingLinks.map(link => `  - ${link}`).join('\n')}\n\n`;
-          });
-          
-          transformedContent += `TOP RECOMMENDATION: Option ${jsonResponse.topRecommendation.optionIndex + 1} - ${jsonResponse.options[jsonResponse.topRecommendation.optionIndex].name}\n`;
-          transformedContent += `Because: ${jsonResponse.topRecommendation.reason}`;
+          // Add shopping links to each option
+          jsonResponse.options = jsonResponse.options.map(option => ({
+            ...option,
+            shoppingLinks: getShoppingLinks(option.name, jsonResponse.country)
+          }));
+          finalResponse = JSON.stringify(jsonResponse);
         }
       } catch (e) {
         console.log('Response was not valid JSON, using as plain text');
       }
     }
 
-    // Transform Gemini response format to match OpenAI format expected by frontend
+    // Transform Gemini response format to match expected frontend format
     const transformedResponse = {
       choices: [{
         message: {
-          content: transformedContent,
+          content: finalResponse,
           role: 'assistant'
         }
       }]
